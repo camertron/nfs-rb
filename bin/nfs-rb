@@ -1,0 +1,52 @@
+#! /usr/bin/env ruby
+
+require 'optparse'
+require 'nfs'
+require 'logger'
+
+options = {}
+default_dir = '.'
+default_host = '127.0.0.1'
+default_port = 2049
+default_protocol = :tcp
+default_log_level = Logger::INFO
+
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: nfs-rb [options]"
+
+  opts.on('-d', '--dir [DIR]', 'The directory to serve. Defaults to the current directory.') do |dir|
+    options[:dir] = dir
+  end
+
+  opts.on('-h', '--host [HOST]', "The host to bind to. Defaults to #{default_host}.") do |host|
+    options[:host] = host
+  end
+
+  opts.on('-p', '--port [PORT]', "The port to bind to. Defaults to #{default_port}.") do |port|
+    options[:port] = port
+  end
+
+  opts.on('-u', '--udp', 'Communicate using UDP (default is TCP).') do
+    options[:protocol] = :udp
+  end
+
+  opts.on('-v', '--verbose', 'Enable verbose logging') do |log_level|
+    options[:log_level] = Logger::DEBUG
+  end
+
+  opts.on('-h', '--help', 'Prints this help message') do
+    puts opts
+    exit
+  end
+end
+
+parser.parse!
+
+options[:dir] ||= default_dir
+options[:host] ||= default_host
+options[:port] ||= default_port
+options[:protocol] ||= default_protocol
+
+NFS.logger.level = options.delete(:log_level) || default_log_level
+NFS.logger.info("Starting NFS server on #{options[:host]}:#{options[:port]}, serving from '#{options[:dir]}'")
+NFS::Server.new(**options).join
