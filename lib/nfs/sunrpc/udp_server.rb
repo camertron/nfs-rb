@@ -4,6 +4,8 @@ require 'thread'
 module NFS
   module SUNRPC
     class UDPServer < Server
+      UDPRecvMTU = 10000
+
       def initialize(programs, port = nil, host = '127.0.0.1')
         @socket = UDPSocket.open
         @socket.bind(host, port)
@@ -12,7 +14,7 @@ module NFS
 
         @thread = Thread.new do
           loop do
-            request = @socket.recvfrom(UDPClient::UDPRecvMTU)
+            request = @socket.recvfrom(UDPRecvMTU)
             data = request[0]
             port = request[1][1]
             host = request[1][3]

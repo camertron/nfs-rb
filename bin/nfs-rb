@@ -48,5 +48,5 @@ options[:port] ||= default_port
 options[:protocol] ||= default_protocol
 
 NFS.logger.level = options.delete(:log_level) || default_log_level
-NFS.logger.info("Starting NFS server on #{options[:host]}:#{options[:port]}, serving from '#{options[:dir]}'")
+NFS.logger.info("Starting NFS server on #{options[:host]}:#{options[:port]}/#{options[:protocol]}, serving from '#{options[:dir]}'")
 NFS::Server.new(**options).join
