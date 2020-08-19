@@ -1,6 +1,8 @@
 module NFS
   class << self
-    attr_accessor :logger
+    def logger
+      @logger ||= DefaultLogger.new(STDOUT)
+    end
   end
 
   autoload :DefaultLogger, 'nfs/default_logger'
@@ -13,5 +15,3 @@ module NFS
   autoload :SUNRPC,        'nfs/sunrpc'
   autoload :XDR,           'nfs/xdr'
 end
-
-NFS.logger = NFS::DefaultLogger.new(STDOUT)

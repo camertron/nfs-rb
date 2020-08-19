@@ -44,8 +44,8 @@ module NFS
         begin
           result = @returntype.encode(result_object)
         rescue => e
-          NFS.logger.error(e.message)
-          NFS.logger.error(e.backtrace.join("\n"))
+          ::NFS.logger.error(e.message)
+          ::NFS.logger.error(e.backtrace.join("\n"))
           raise IgnoreRequest
         end
 

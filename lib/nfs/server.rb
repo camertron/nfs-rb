@@ -8,7 +8,7 @@ module NFS
       @port = port
       @protocol = protocol
 
-      @handler = Handler.new(FileProxy.open(dir))
+      @handler = Handler.new(FileProxy.new(dir))
       @server = server_class.new(@handler.programs, port, host)
     end
 

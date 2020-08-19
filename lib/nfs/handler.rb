@@ -334,19 +334,22 @@ module NFS
 
       @nfs_prog.on_call(@nfs_vers, :READ) do |arg, auth, verf|
         handle_errors do
-          f = @fh_table[arg[:file][:data]]
-          ::NFS.logger.info("READ #{f.path}")
-          attrs = f.lstat
-          f.pos = arg[:offset]
-          result = f.read(arg[:count])
+          fh = @fh_table[arg[:file][:data]]
+          ::NFS.logger.info("READ #{fh.path}")
+          attrs = fh.lstat
 
-          {
-            _discriminant: :NFS_OK,
-            reply: {
-              attributes: convert_attrs(attrs),
-              data: result
+          File.open(fh.path) do |f|
+            f.pos = arg[:offset]
+            result = f.read(arg[:count])
+
+            {
+              _discriminant: :NFS_OK,
+              reply: {
+                attributes: convert_attrs(attrs),
+                data: result
+              }
             }
-          }
+          end
         end
       end
 
@@ -357,17 +360,20 @@ module NFS
       @nfs_prog.on_call(@nfs_vers, :WRITE) do |arg, auth, verf|
 
         handle_errors do
-          f = @fh_table[arg[:file][:data]]
-          ::NFS.logger.info("WRITE #{f.path}")
-          f.pos = arg[:offset]
-          f.write(arg[:data])
-          f.flush
-          attrs = f.lstat
+          fh = @fh_table[arg[:file][:data]]
+          ::NFS.logger.info("WRITE #{fh.path}")
 
-          {
-            _discriminant: :NFS_OK,
-            attributes: convert_attrs(attrs)
-          }
+          File.open(fh.path) do |f|
+            f.pos = arg[:offset]
+            f.write(arg[:data])
+            f.flush
+            attrs = f.lstat
+
+            {
+              _discriminant: :NFS_OK,
+              attributes: convert_attrs(attrs)
+            }
+          end
         end
       end
 
@@ -513,7 +519,7 @@ module NFS
               cookie: cookie
             }
 
-            if not last_entry.nil?
+            if !last_entry.nil?
               last_entry[:nextentry] = next_entry
               last_entry = next_entry
             end
@@ -533,7 +539,7 @@ module NFS
             eof = :FALSE
           end
 
-          if not last_entry.nil?
+          if !last_entry.nil?
             last_entry[:nextentry] = nil
           end
 

@@ -1,29 +1,12 @@
 module NFS
-  class FileProxy < ::File
-    class << self
-      def new(*args, &block)
-        super(*args, &block)._nfs_setup
-      end
+  class FileProxy
+    attr_reader :path, :mode
 
-      def open(*args)
-        f = super(*args)._nfs_setup
-
-        if block_given?
-          begin
-            return yield(f)
-          ensure
-            f.close
-          end
-        end
-
-        f
-      end
-    end
-
-    def _nfs_setup
+    def initialize(path, mode = 'r')
+      @path = path
+      @mode = mode
       @absolute_path = File.expand_path(path)
       @looked_up = {}
-      self
     end
 
     def create(name, mode, uid, gid)
@@ -112,6 +95,10 @@ module NFS
 
     def utime(atime, mtime)
       File.utime(atime, mtime, @absolute_path)
+    end
+
+    def lstat
+      File.lstat(path)
     end
   end
 end
