@@ -1,27 +1,28 @@
+require 'fileutils'
+
 module NFS
   class FileProxy
-    attr_reader :path, :mode
+    attr_reader :path
 
-    def initialize(path, mode = 'r')
+    def initialize(path)
       @path = path
-      @mode = mode
       @absolute_path = File.expand_path(path)
       @looked_up = {}
     end
 
     def create(name, mode, uid, gid)
-      f = nil
+      path = _lookup(name)
+      f = self.class.new(path)
 
-      begin
-        f = self.class.new(_lookup(name), File::RDWR | File::CREAT, mode)
-      rescue
-        f = self.class.new(_lookup(name), File::RDONLY | File::CREAT, mode)
+      unless File.exist?(path)
+        FileUtils.touch(path)
       end
 
+      f.chmod(mode)
+      f.chown(uid, gid)
+
       stat = f.lstat
-
       @looked_up[[stat.ino, name]] = f
-
       [f, stat]
     end
 
@@ -30,13 +31,7 @@ module NFS
     end
 
     def lookup(name)
-      f = nil
-
-      begin
-        f = self.class.new(_lookup(name), File::RDWR)
-      rescue
-        f = self.class.new(_lookup(name), File::RDONLY)
-      end
+      f = self.class.new(_lookup(name))
 
       stat = f.lstat
       key = [stat.ino, name]
@@ -64,16 +59,11 @@ module NFS
       File.symlink(to_name, _lookup(name))
     end
 
-    def readlink
-      File.readlink(@absolute_path)
-    end
-
-    def mkdir(name, mode, uid, gid)
+    def mkdir(name, mode)
       path = _lookup(name)
       Dir.mkdir(path, mode)
 
       f = self.class.new(path)
-      #f.chown(uid, gid)
 
       stat = f.lstat
       @looked_up[[stat.ino, name]] = f
@@ -98,7 +88,19 @@ module NFS
     end
 
     def lstat
-      File.lstat(path)
+      File.lstat(@absolute_path)
+    end
+
+    def truncate(len)
+      File.truncate(@absolute_path, len)
+    end
+
+    def chmod(new_mode)
+      File.chmod(new_mode, @absolute_path)
+    end
+
+    def chown(uid, gid)
+      File.chown(uid, gid, @absolute_path)
     end
   end
 end

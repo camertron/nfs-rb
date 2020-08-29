@@ -1,5 +1,7 @@
 module NFS
   class Handler
+    MAX_READDIR_ENTRIES = 200
+
     def initialize(root = nil, fsid = 0)
       @mount_prog = Mount::MOUNTPROG.dup
       @mount_vers = Mount::MOUNTVERS
@@ -8,6 +10,7 @@ module NFS
 
       @exports = {}
       @fh_table = {}
+      @write_handles = {}
       @file_objects = {}
       @next_fh = Filehandle.new
 
@@ -21,6 +24,12 @@ module NFS
       define_nfs_procedures
 
       instance_eval(&block) if block_given?
+
+      at_exit do
+        @write_handles.each do |_, wh|
+          wh.close
+        end
+      end
     end
 
     def programs
@@ -284,7 +293,7 @@ module NFS
             f.utime(atime, mtime)
           end
 
-          ::NFS.logger.info("SETATTR #{f} #{changes.join(', ')}")
+          ::NFS.logger.info("SETATTR #{f.path} #{changes.join(', ')}")
 
           {
             _discriminant: :NFS_OK,
@@ -338,7 +347,7 @@ module NFS
           ::NFS.logger.info("READ #{fh.path}")
           attrs = fh.lstat
 
-          File.open(fh.path) do |f|
+          File.open(fh.path, 'r') do |f|
             f.pos = arg[:offset]
             result = f.read(arg[:count])
 
@@ -363,17 +372,16 @@ module NFS
           fh = @fh_table[arg[:file][:data]]
           ::NFS.logger.info("WRITE #{fh.path}")
 
-          File.open(fh.path) do |f|
-            f.pos = arg[:offset]
-            f.write(arg[:data])
-            f.flush
-            attrs = f.lstat
+          wh = @write_handles[arg[:file][:data]] ||= File.open(fh.path, 'w')
+          wh.pos = arg[:offset]
+          wh.write(arg[:data])
+          wh.flush
+          attrs = fh.lstat
 
-            {
-              _discriminant: :NFS_OK,
-              attributes: convert_attrs(attrs)
-            }
-          end
+          {
+            _discriminant: :NFS_OK,
+            attributes: convert_attrs(attrs)
+          }
         end
       end
 
@@ -509,8 +517,9 @@ module NFS
 
           result_entries = nil
           last_entry = nil
+          total = 0
 
-          while cookie < entries.size && need_bytes < count
+          while cookie < entries.size && total < MAX_READDIR_ENTRIES && need_bytes < count
             need_bytes += NFS::Filename.encode(entries[cookie]).size
 
             next_entry = {
@@ -530,6 +539,7 @@ module NFS
             end
 
             cookie += 1
+            total += 1
             need_bytes += 16
           end
 
